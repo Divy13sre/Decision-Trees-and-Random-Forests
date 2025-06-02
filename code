@@ -1,0 +1,118 @@
+step 1:Load Dataset
+
+from google.colab import files
+uploaded = files.upload()  # Choose your dataset file (e.g., heart.csv)
+
+import io
+import pandas as pd
+
+df = pd.read_csv(io.BytesIO(uploaded['heart.csv']))  # change filename accordingly
+print(df.head())
+
+Output
+
+Saving heart.csv to heart.csv
+   age  sex  cp  trestbps  chol  fbs  restecg  thalach  exang  oldpeak  slope  \
+0   52    1   0       125   212    0        1      168      0      1.0      2   
+1   53    1   0       140   203    1        0      155      1      3.1      0   
+2   70    1   0       145   174    0        1      125      1      2.6      0   
+3   61    1   0       148   203    0        1      161      0      0.0      2   
+4   62    0   0       138   294    1        1      106      0      1.9      1   
+
+   ca  thal  target  
+0   2     3       0  
+1   0     3       0  
+2   0     3       0  
+3   1     3       0  
+4   3     2       0  
+
+step 2: Prepare Data
+
+target_col = 'target'  
+
+X = df.drop(target_col, axis=1)
+y = df[target_col]
+
+cat_cols = X.select_dtypes(include=['object']).columns.tolist()
+X = pd.get_dummies(X, columns=cat_cols)
+
+from sklearn.model_selection import train_test_split
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+step 3: Train a Decision Tree Classifier and visualize the tree
+
+from sklearn.tree import DecisionTreeClassifier, export_graphviz
+import graphviz
+
+dt = DecisionTreeClassifier(random_state=42)
+dt.fit(X_train, y_train)
+
+# Visualize the tree
+dot_data = export_graphviz(dt, out_file=None, feature_names=X.columns,
+                           class_names=[str(c) for c in dt.classes_],
+                           filled=True, rounded=True, special_characters=True)
+graph = graphviz.Source(dot_data)
+graph.render("decision_tree")  # Saves decision_tree.pdf
+graph  # Displays tree in notebook (if supported)
+
+Output:
+https://colab.research.google.com/drive/1ArX5a4-v2MkQcNwn3cQBYWKVYGE5ndHV#scrollTo=V7D5UVp4HoOy
+
+Step 4: Analyze Overfitting — control tree depth
+
+dt_limited = DecisionTreeClassifier(max_depth=3, random_state=42)
+dt_limited.fit(X_train, y_train)
+
+print("Train accuracy (depth=3):", dt_limited.score(X_train, y_train))
+print("Test accuracy (depth=3):", dt_limited.score(X_test, y_test))
+
+Output:
+
+Train accuracy (depth=3): 0.8512195121951219
+Test accuracy (depth=3): 0.7804878048780488
+
+Step 5: Train Random Forest and compare accuracy
+
+from sklearn.ensemble import RandomForestClassifier
+
+rf = RandomForestClassifier(n_estimators=100, random_state=42)
+rf.fit(X_train, y_train)
+
+print("Random Forest Test Accuracy:", rf.score(X_test, y_test))
+
+Output:
+Random Forest Test Accuracy: 0.9853658536585366
+
+Step 6: Interpret Feature Importances
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+importances = rf.feature_importances_
+indices = np.argsort(importances)[::-1]
+
+plt.figure(figsize=(10,6))
+plt.title("Feature Importances - Random Forest")
+plt.bar(range(len(importances)), importances[indices])
+plt.xticks(range(len(importances)), X.columns[indices], rotation=90)
+plt.show()
+
+Step 7: Evaluate using Cross-Validation
+
+from sklearn.model_selection import cross_val_score
+
+scores = cross_val_score(rf, X, y, cv=5)
+print("Random Forest Cross-validation accuracy: {:.4f} ± {:.4f}".format(scores.mean(), scores.std()))
+
+Output:
+Random Forest Cross-validation accuracy: 0.9971 ± 0.0059
+
+
+
+
+
+
+
+
